@@ -1,0 +1,107 @@
+= APB Demux Спецификация
+:docnumber: 001
+:revnumber: 1.0
+:revdate: 09.10.2025
+:applied: 
+:approved: 
+
+== Глава 1. Введение
+
+=== Назначение блока
+APB демультиплексор - дает доступ одному APB master устройству ко многим APB slave устройствам. Каждому slave устройству параметрами назначается адресный диапазон. Выбор происходит при попадании `paddr_i` в соответствующий диапазон
+
+=== Основные функции
+* Параметризуемое количество подключаемых APB Slave устройств (1-32)
+* Параметризуемая ширина данных и адреса
+* Параметризуемые значения адресов и сдвигов для каждого APB Slave устройства
+* Поддержка протокола APB3
+* Проверка адреса на корректность при получении транзакции от мастера
+
+=== Конфигурация
+[cols="1,1,3", options="header"]
+|===
+| Параметр        | Диапазон значений | Описание
+| APB_SLAVE_COUNT | 1-32              | Количество подключаемых APB Slave устройств. Default: 8
+| APB_ADDR_WIDTH  | 8-32              | Ширина адреса APB шины. Default: 32
+| APB_DATA_WIDTH  | 8-32              | Ширина данных APB шины. Default: 32
+| BASE_ADDR       | APB_ADDR_WIDTH    | Массив глубиной APB_SLAVE_COUNT. Default: 0
+| ADDR_OFFSET     | APB_ADDR_WIDTH    | Сдвиг относительно базового адреса соответствующего slave. Массив глубиной APB_SLAVE_COUNT. Default: 0
+|===
+
+== Глава 2. Функциональное описание
+
+=== Структурная схема
+На рисунке 1 приведена структурная схема APB демультиплексора. Значение `n` на схеме заменяет параметр `APB_SLAVE_COUNT`.
+
+[#block_diagram]
+.Структурная схема APB Demux
+image::apb_demux_concept.drawio.svg[APB Demux Block Diagram, width=600]
+
+В состав блока входят:
+
+* *compare range* - выбор целевого slave
+
+* *onehot check* - проверка корректности целевого slave
+
+* *demux 1x(n-1)* - передача управляющих сигналов (`psel` и `penable`) на целевой slave
+
+* *mux nx1* - передача сигналов со slave устройств на master
+
+=== Принцип работы
+Во время имлементации необходимо параметрами задать значения диапазонов адресов для каждого slave. По умолчанию значения 0, поэтому на master всегда будет возвращаться ошибка.
+При поступлении транзакций от APB Master происходит следующий процесс:
+
+* На основе входного адреса `paddr` формируется сигнал `in_range[n-1:0]`, где каждый бит указывает на попадание адреса в соответствующий диапазон
+* Выполняется проверка корректности декодирования адреса:
+** Если количество единичных битов в сигнале `in_range` отличается от 1, активируется бит ошибки `en[n]`
+** При активном сигнале `en[n]` на выходном интерфейсе APB Master выставляются сигналы `data_n`, `ready_n` и `slverr_n`, определенные внутри модуля
+* При успешном декодировании адреса (ровно один бит `in_range` установлен в 1):
+** Управляющие сигналы `psel` и `penable` передаются на выбранное slave устройство
+** Сигнал `en[n-1:0]` управляет мультиплексором Nx1 для передачи данных от slave устройства
+
+=== Сценарии применения
+* Подключение одного APB Master к нескольким периферийным устройствам
+
+== Глава 3. Описание портов
+
+Тактового сигнала и сигнала сброса нет, так как блок комбинационный
+
+.All Ports
+[cols="^18,^30,^17,<45", options="header"]
+|===
+    | Port              | Width           | Direction   | Description
+ 4+<| *Bus from APB Master*
+    | psel_i            | 1               | input       | Master select Slave
+    | paddr_i           | APB_ADDR_WIDTH  | input       | Master address data
+    | pwrite_i          | 1               | input       | Master type transaction(write/read) signal
+    | penable_i         | 1               | input       | Master enable
+    | pwdata_i          | APB_DATA_WIDTH  | input       | Master write data
+    | prdata_o          | APB_DATA_WIDTH  | output      | Slave read data
+    | pready_o          | 1               | output      | Slave read data ready
+    | pslverr_o         | 1               | output      | Slave error signal transaction(write/read)
+    
+ 4+<| *Bus to APB Slaves*
+    | psel_o            | 1               | output      | Master select Slave
+    | paddr_o           | APB_ADDR_WIDTH  | output      | Master address data
+    | pwrite_o          | 1               | output      | Master type transaction(write/read) signal
+    | penable_o         | 1               | output      | Master enable
+    | pwdata_o          | APB_DATA_WIDTH  | output      | Master write data
+    | prdata_i          | APB_DATA_WIDTH  | input       | Slave read data
+    | pready_i          | 1               | input       | Slave read data ready
+    | pslverr_i         | 1               | input       | Slave error signal transaction(write/read)     
+// 5+<| *Additional*
+|===
+
+=== Описание интерфейсов
+В блоке используется интерфейс AMBA 3 APB.
+
+== Глава 4. Программирование
+
+=== Регистры блока
+Блок не содержит программируемых регистров, так как является комбинационным.
+
+=== Работа со сбросом
+Блок не имеет сброса
+
+== Глава 5. Архитектура питания
+Вся логика находится в одном домене питания. Специальных требований не предъявляется.
