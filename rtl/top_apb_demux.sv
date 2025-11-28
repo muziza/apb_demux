@@ -34,40 +34,21 @@ module top_apb_demux #(
     input  logic                      pslverr_i [APB_SLAVE_COUNT]
 );
 
-    logic [APB_ADDR_WIDTH-1:0] start_addr [APB_SLAVE_COUNT];
-    logic [APB_ADDR_WIDTH-1:0] end_addr   [APB_SLAVE_COUNT];
+    logic [APB_ADDR_WIDTH-1:0] mask_addr  [APB_SLAVE_COUNT];
 
     generate
-        for (genvar i = 0; i < APB_SLAVE_COUNT; ++i) begin : range_calc
-            assign start_addr[i] = BASE_ADDR[i];
-            assign end_addr[i] = BASE_ADDR[i] + ADDR_SIZE[i];
+        for (genvar i = 0; i < APB_SLAVE_COUNT; ++i) begin : mask_calculation
+            assign mask_addr[i] = ~(ADDR_SIZE[i]-1);
         end
     endgenerate
 
     // Compare range logic
     logic [APB_SLAVE_COUNT-1:0] in_range;
-    // always_comb begin
-    //     if (psel_i) begin
-    //         in_range = '0;
-    //         for (int i = 0; i < APB_SLAVE_COUNT; ++i) begin
-    //             if (paddr_i >= start_addr[i] && paddr_i <= end_addr[i]) begin
-    //                 in_range[i] = 1'b1;
-    //             end else begin
-    //                 in_range[i] = 1'b0;
-    //             end
-    //         end
-    //     end else begin
-    //         in_range = '0;
-    //     end
-    // end
-
-    logic [APB_ADDR_WIDTH-1:0] paddr;
     always_comb begin
         if (psel_i) begin
             in_range = '0;
             for (int i = 0; i < APB_SLAVE_COUNT; ++i) begin
-                paddr = paddr_i ^ BASE_ADDR[i];
-                if (paddr <= ADDR_SIZE[i]) begin
+                if ((paddr_i & mask_addr[i]) == (BASE_ADDR[i] & mask_addr[i])) begin
                     in_range[i] = 1'b1;
                 end else begin
                     in_range[i] = 1'b0;
@@ -87,20 +68,20 @@ module top_apb_demux #(
     end
 
     // Onehot check logic
-    logic [APB_SLAVE_COUNT:0] en;
+    logic [APB_SLAVE_COUNT:0] select;
     always_comb begin
         if (bit_count == 1) begin
-            en = {1'b0, in_range};
+            select = {1'b0, in_range};
         end else if (psel_i) begin
-            en = '0;
-            en[APB_SLAVE_COUNT] = 1'b1;
+            select = '0;
+            select[APB_SLAVE_COUNT] = 1'b1;
         end
     end
 
     // DEMUX logic
     always_comb begin
         for (int i = 0; i < APB_SLAVE_COUNT; i++) begin
-            if (en[i]) begin
+            if (select[i]) begin
                 psel_o[i] = psel_i;
                 penable_o[i] = penable_i;
             end else begin
@@ -111,33 +92,38 @@ module top_apb_demux #(
     end
 
     // Not control signals for all slaves
-    generate
-        for (genvar i = 0; i < APB_SLAVE_COUNT; ++i) begin : not_ctrl_signals_connect
-            assign paddr_o[i] = paddr_i;
-            assign pwdata_o[i] = pwdata_i;
-            assign pwrite_o[i] = pwrite_i;
+    always_comb begin
+        for (int i = 0; i < APB_SLAVE_COUNT; ++i) begin
+            paddr_o[i] = paddr_i;
+            pwdata_o[i] = pwdata_i;
+            pwrite_o[i] = pwrite_i;
         end
-    endgenerate
+    end
+    //generate
+        //for (genvar i = 0; i < APB_SLAVE_COUNT; ++i) begin : not_ctrl_signals_connect
+            //assign paddr_o[i] = paddr_i;
+            //assign pwdata_o[i] = pwdata_i;
+            //assign pwrite_o[i] = pwrite_i;
+        //end
+    //endgenerate
 
     // MUX logic
     always_comb begin
         pslverr_o = 1'b0;
         prdata_o = 'b0;
         pready_o = 1'b0;
-        if (en[APB_SLAVE_COUNT]) begin
+        if (select[APB_SLAVE_COUNT]) begin
             prdata_o = 'b0;
             pready_o = 1'b1;
             pslverr_o = 1'b1;
         end else begin
             for (int i = 0; i < APB_SLAVE_COUNT; ++i) begin
-                if (en[i]) begin
+                if (select[i]) begin
                     prdata_o = prdata_i[i];
                     pready_o = pready_i[i];
                     pslverr_o = pslverr_i[i];
                     break;
                 end 
-                // else begin
-                // end
             end
         end
     end

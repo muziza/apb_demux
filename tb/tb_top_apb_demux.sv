@@ -43,12 +43,14 @@ module tb_top_apb_demux;
     );
 
     logic clk = 0;
+    
 
     initial begin
         forever #10 clk = ~clk;
     end
 
     task do_write(logic [31:0] addr, logic [31:0] data);
+
         @(posedge clk);
         psel_i = 1'b1;
         pwrite_i = 1'b1;
@@ -119,25 +121,38 @@ module tb_top_apb_demux;
         #50;
         $finish;
     end
-    // generate
-    //     for (genvar i = 0; i < 8; i++) begin : slave_assertions
-    //         property penable_after_pready;
-    //             @(posedge clk) psel_o[i] && penable_o[i] && pready_i[i] |=> !penable_o[i];
-    //         endproperty
-    //         assert_penable_after_pready: assert property (penable_after_pready)
-    //             else begin
-    //                 $error("Penable has high value after handshake");
-    //                 $stop;
-    //             end
 
-    //         property penable_only_with_psel;
-    //             @(posedge clk) penable_o[i] |-> psel_o[i];
-    //         endproperty
-    //         assert_penable_only_with_psel: assert property (penable_only_with_psel)
-    //             else begin
-    //                 $error("Penable without psel");
-    //                 $stop;
-    //             end
-    //     end
-    // endgenerate
+    property penable_after_pready;
+        @(posedge clk) disable iff (!psel_i) psel_i && penable_i == 1'b0 |=> penable_i == 1'b1;
+    endproperty
+    assert property (penable_after_pready) else
+        $error("PENABLE musy be high after");
+
+    logic [7:0] psel;
+    assign psel[0] = psel_o[0];
+    assign psel[1] = psel_o[1];
+    assign psel[2] = psel_o[2];
+    assign psel[3] = psel_o[3];
+    assign psel[4] = psel_o[4];
+    assign psel[5] = psel_o[5];
+    assign psel[6] = psel_o[6];
+    assign psel[7] = psel_o[7];
+
+    property only_one_slave_selected;
+        @(posedge clk)
+        $onehot0(psel);
+    endproperty
+    assert property (only_one_slave_selected) else
+        $error("[SVA] Many slaves");
+
+    generate
+        for (genvar i = 0; i < 8; i++) begin : slave_assertions
+            property psel_penable_sequence;
+                @(posedge clk) disable iff (!psel_o[i]) psel_o[i] && penable_o[i] == 1'b0 |=> penable_o[i] == 1'b1;
+            endproperty
+            assert property (psel_penable_sequence) else
+                $error("[SVA] PENABLE must be high after PSEL");
+
+        end
+    endgenerate
 endmodule
