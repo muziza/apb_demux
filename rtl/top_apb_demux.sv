@@ -34,7 +34,7 @@ module top_apb_demux #(
     input  logic                      pslverr_i [APB_SLAVE_COUNT]
 );
 
-    logic [APB_ADDR_WIDTH-1:0] mask_addr  [APB_SLAVE_COUNT];
+    logic [APB_ADDR_WIDTH-1:0] mask_addr [APB_SLAVE_COUNT];
 
     generate
         for (genvar i = 0; i < APB_SLAVE_COUNT; ++i) begin : mask_calculation
@@ -75,6 +75,8 @@ module top_apb_demux #(
         end else if (psel_i) begin
             select = '0;
             select[APB_SLAVE_COUNT] = 1'b1;
+        end else begin // todo else
+            select = '0;
         end
     end
 
@@ -99,13 +101,6 @@ module top_apb_demux #(
             pwrite_o[i] = pwrite_i;
         end
     end
-    //generate
-        //for (genvar i = 0; i < APB_SLAVE_COUNT; ++i) begin : not_ctrl_signals_connect
-            //assign paddr_o[i] = paddr_i;
-            //assign pwdata_o[i] = pwdata_i;
-            //assign pwrite_o[i] = pwrite_i;
-        //end
-    //endgenerate
 
     // MUX logic
     always_comb begin
@@ -123,7 +118,11 @@ module top_apb_demux #(
                     pready_o = pready_i[i];
                     pslverr_o = pslverr_i[i];
                     break;
-                end 
+                end else begin // todo else
+                    pslverr_o = 1'b0;
+                    prdata_o = 'b0;
+                    pready_o = 1'b0;
+                end
             end
         end
     end
