@@ -2,13 +2,14 @@
 :docnumber: 001
 :revnumber: 1.0
 :revdate: 09.10.2025
-:applied: 
-:approved: 
+:applied:
+:approved:
 
 == Глава 1. Введение
 
 === Назначение блока
-APB демультиплексор - дает доступ одному APB master устройству ко многим APB slave устройствам. Каждому slave устройству параметрами назначается адресный диапазон. Выбор происходит при попадании `paddr_i` в соответствующий диапазон
+APB демультиплексор - дает доступ одному APB master устройству ко многим APB slave устройствам.
+Каждому slave устройству параметрами назначается адресный диапазон. Выбор slave происходит при попадании `paddr_i` в соответствующий диапазон c помощью маскирования
 
 === Основные функции
 * Параметризуемое количество подключаемых APB Slave устройств (1-32)
@@ -24,8 +25,8 @@ APB демультиплексор - дает доступ одному APB mast
 | APB_SLAVE_COUNT | 1-32              | Количество подключаемых APB Slave устройств. Default: 8
 | APB_ADDR_WIDTH  | 8-32              | Ширина адреса APB шины. Default: 32
 | APB_DATA_WIDTH  | 8-32              | Ширина данных APB шины. Default: 32
-| BASE_ADDR       | APB_ADDR_WIDTH    | Массив глубиной APB_SLAVE_COUNT. Default: 0
-| ADDR_OFFSET     | APB_ADDR_WIDTH    | Сдвиг относительно базового адреса соответствующего slave. Массив глубиной APB_SLAVE_COUNT. Default: 0
+| BASE_ADDR       | APB_ADDR_WIDTH    | Начальный адрес каждого диапазона, должен быть кратен ADDR_SIZE. Массив глубиной APB_SLAVE_COUNT. Значения по умолчанию: 0
+| ADDR_SIZE       | APB_ADDR_WIDTH    | Размер адресного пространства каждого slave, должен быть степенью двойки. Массив глубиной APB_SLAVE_COUNT. Значения по умолчанию: 0
 |===
 
 == Глава 2. Функциональное описание
@@ -51,13 +52,13 @@ image::apb_demux_concept.drawio.svg[APB Demux Block Diagram, width=600]
 Во время имлементации необходимо параметрами задать значения диапазонов адресов для каждого slave. По умолчанию значения 0, поэтому на master всегда будет возвращаться ошибка.
 При поступлении транзакций от APB Master происходит следующий процесс:
 
-* На основе входного адреса `paddr` формируется сигнал `in_range[n-1:0]`, где каждый бит указывает на попадание адреса в соответствующий диапазон
+* На основе входного адреса `paddr` формируется сигнал `in_range[n-1:0]`, где каждый бит указывает на попадание адреса в соответствующий диапазон. Диапазон расчитывается при применении маски на базовый адрес и адрес, полученный от master. Маска находится как `~(ADDR_SIZE-1)`
 * Выполняется проверка корректности декодирования адреса:
-** Если количество единичных битов в сигнале `in_range` отличается от 1, активируется бит ошибки `en[n]`
-** При активном сигнале `en[n]` на выходном интерфейсе APB Master выставляются сигналы `data_n`, `ready_n` и `slverr_n`, определенные внутри модуля
+** Если количество единичных битов в сигнале `in_range` отличается от 1, активируется бит ошибки `select[n]`
+** При активном сигнале `select[n]` на выходном интерфейсе APB Master выставляются сигналы `data_n`, `ready_n` и `slverr_n`, определенные внутри модуля
 * При успешном декодировании адреса (ровно один бит `in_range` установлен в 1):
 ** Управляющие сигналы `psel` и `penable` передаются на выбранное slave устройство
-** Сигнал `en[n-1:0]` управляет мультиплексором Nx1 для передачи данных от slave устройства
+** Сигнал `select[n-1:0]` управляет мультиплексором Nx1 для передачи данных от slave устройства
 
 === Сценарии применения
 * Подключение одного APB Master к нескольким периферийным устройствам
@@ -79,7 +80,7 @@ image::apb_demux_concept.drawio.svg[APB Demux Block Diagram, width=600]
     | prdata_o          | APB_DATA_WIDTH  | output      | Slave read data
     | pready_o          | 1               | output      | Slave read data ready
     | pslverr_o         | 1               | output      | Slave error signal transaction(write/read)
-    
+
  4+<| *Bus to APB Slaves*
     | psel_o            | 1               | output      | Master select Slave
     | paddr_o           | APB_ADDR_WIDTH  | output      | Master address data
@@ -88,7 +89,7 @@ image::apb_demux_concept.drawio.svg[APB Demux Block Diagram, width=600]
     | pwdata_o          | APB_DATA_WIDTH  | output      | Master write data
     | prdata_i          | APB_DATA_WIDTH  | input       | Slave read data
     | pready_i          | 1               | input       | Slave read data ready
-    | pslverr_i         | 1               | input       | Slave error signal transaction(write/read)     
+    | pslverr_i         | 1               | input       | Slave error signal transaction(write/read)
 // 5+<| *Additional*
 |===
 
