@@ -1,6 +1,6 @@
 all: clean run
 
-run: clean 
+run: clean
 	@echo "Run compilation, elaborate and simulation"
 	bash ./run.sh
 
