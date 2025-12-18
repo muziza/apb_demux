@@ -304,7 +304,7 @@ module tb_top_apb_demux;
         @(posedge clk) disable iff (!psel_i) psel_i && !penable_i |=> penable_i;
     endproperty
     assert property (penable_after_pready) else
-        $error("PENABLE must be high after");
+        $error("[SVA] Master: PENABLE must be high after PSEL");
 
 
     property only_one_slave_selected;
@@ -319,7 +319,7 @@ module tb_top_apb_demux;
                 @(posedge clk) disable iff (!psel_o[i]) psel_o[i] && !penable_o[i] |=> penable_o[i];
             endproperty
             assert property (psel_penable_sequence) else
-                $error("[SVA] PENABLE must be high after PSEL");
+                $error("[SVA] Slaves: PENABLE must be high after PSEL");
 
         end
     endgenerate
