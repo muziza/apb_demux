@@ -22,7 +22,14 @@ module tb_top_apb_demux;
     logic        pready_i  [8];
     logic        pslverr_i [8];
 
-    top_apb_demux top_apb_demux_inst (
+    top_apb_demux #(
+        .BASE_ADDR('{
+            32'h0000_0000, 32'h1000_0000, 32'h2000_0000, 32'h3000_0000,
+            32'h4000_0000, 32'h5000_0000, 32'h6000_0000, 32'h7000_0000}),
+        .ADDR_SIZE('{
+            32'h0000_1000, 32'h0000_1000, 32'h0000_1000, 32'h0000_1000,
+            32'h0000_1000, 32'h0000_1000, 32'h0000_1000, 32'h0000_1000})
+    ) top_apb_demux_inst (
         .psel_i    (psel_i),
         .paddr_i   (paddr_i),
         .pwrite_i  (pwrite_i),

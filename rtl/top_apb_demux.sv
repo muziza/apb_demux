@@ -4,14 +4,8 @@ module top_apb_demux #(
     parameter int APB_SLAVE_COUNT = 8,
     parameter int APB_ADDR_WIDTH = 32,
     parameter int APB_DATA_WIDTH = 32,
-    parameter [APB_ADDR_WIDTH-1:0] BASE_ADDR [APB_SLAVE_COUNT] = '{
-        'h0000_0000, 'h1000_0000, 'h2000_0000, 'h3000_0000,
-        'h4000_0000, 'h5000_0000, 'h6000_0000, 'h7000_0000
-    },
-    parameter [APB_ADDR_WIDTH-1:0] ADDR_SIZE [APB_SLAVE_COUNT] = '{
-        'h0000_1000, 'h0000_1000, 'h0000_1000, 'h0000_1000,
-        'h0000_1000, 'h0000_1000, 'h0000_1000, 'h0000_1000
-    }
+    parameter [APB_ADDR_WIDTH-1:0] BASE_ADDR [APB_SLAVE_COUNT] = '{8{'h0000_0000}},
+    parameter [APB_ADDR_WIDTH-1:0] ADDR_SIZE [APB_SLAVE_COUNT] = '{8{'h0000_0000}}
 )(
     // Bus from APB Master
     input  logic                      psel_i,
@@ -75,7 +69,7 @@ module top_apb_demux #(
         end else if (psel_i) begin
             select = '0;
             select[APB_SLAVE_COUNT] = 1'b1;
-        end else begin // todo else
+        end else begin
             select = '0;
         end
     end
@@ -118,7 +112,7 @@ module top_apb_demux #(
                     pready_o = pready_i[i];
                     pslverr_o = pslverr_i[i];
                     break;
-                end else begin // todo else
+                end else begin
                     pslverr_o = 1'b0;
                     prdata_o = 'b0;
                     pready_o = 1'b0;
